@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
+from prepare_data import Loader
 
 # Network architecture
 #------------------------------------------------------------------------
@@ -39,7 +40,7 @@ class Net(nn.Module):
 
 def train(
     model: Net,
-    loader: DataLoader,
+    loader: Loader,
     criterion: nn.Module,
     optimizer: torch.optim.Optimizer,
     num_epoch: int
@@ -47,8 +48,9 @@ def train(
 
     model.train() # switch model on train mode
 
-    for epoch in tqdm(range(num_epoch)):
+    for epoch in range(num_epoch):
         epoch_loss = 0.0
+        loader.shuffle()
 
         for batch_data, batch_ref in loader:
             optimizer.zero_grad()
