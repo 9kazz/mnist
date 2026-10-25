@@ -9,16 +9,19 @@ from collections.abc import Sequence
 #------------------------------------------------------------------------
 RANDOM_SEED = 42
 
+# Loader
+#------------------------------------------------------------------------
 class Loader:
-    dataset: TensorDataset
-    data:    list[torch.Tensor]
-    labels:  list[torch.Tensor]
+    dataset:    TensorDataset
+    batch_size: int
+    generator:  torch.Generator
+    shuffle:    bool=True
 
     def __init__(
         self,
         dataset: TensorDataset,
         batch_size: int = 64,
-        rand_seed:  int = RANDOM_SEED,
+        rand_seed: int = RANDOM_SEED,
     ) -> None:
         if isinstance(batch_size, bool) or not isinstance(batch_size, int):
             raise TypeError("batch_size must be an integer")
@@ -28,18 +31,10 @@ class Loader:
         if not isinstance(dataset, TensorDataset):
             raise TypeError("dataset must be a TensorDataset")
         if len(dataset.tensors) != 2:
-            raise ValueError("dataset must contain exactly two tensors: images and labels")
+            raise ValueError("dataset must contain exactly two tensors")
 
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.generator  = torch.Generator().manual_seed(rand_seed)
-        self.create_batches()
+        data, labels = dataset.tensors
 
-    def __iter__(self):
-            return zip(self.data, self.labels)
-    
-    def create_batches(self) -> None:
-        data, labels = self.dataset.tensors
         if data.ndim == 0 or labels.ndim == 0:
             raise ValueError("Data and labels must have a sample dimension")
         if len(data) != len(labels):
@@ -47,21 +42,28 @@ class Loader:
         if data.device != labels.device:
             raise ValueError("Data and labels must be on the same device")
 
-        indices = torch.randperm(len(data), generator=self.generator)
-        indices = indices.to(data.device)
-        data_batches:  list[torch.Tensor] = []
-        label_batches: list[torch.Tensor] = []
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.generator = torch.Generator().manual_seed(rand_seed)
 
-        for batch_start in range(0, len(data), self.batch_size):
-            batch_indices = indices[batch_start : batch_start + self.batch_size]
-            data_batches.append(data[batch_indices])
-            label_batches.append(labels[batch_indices])
+    def __len__(self) -> int:
+        return (len(self.dataset) + self.batch_size - 1) // self.batch_size
 
-        self.data   = data_batches
-        self.labels = label_batches
+    def __iter__(self):
+        data, labels = self.dataset.tensors
 
-    def shuffle(self) -> None:
-        self.create_batches()
+        if self.shuffle:
+            indices = torch.randperm(
+                len(data),
+                generator=self.generator
+            ).to(data.device)
+        else:
+            indices = torch.arange(len(data), device=data.device)
+
+        for start in range(0, len(data), self.batch_size):
+            batch_indices = indices[start:start + self.batch_size]
+
+            yield data[batch_indices], labels[batch_indices]
 
 # Prepare data
 #------------------------------------------------------------------------

@@ -50,7 +50,6 @@ def train(
 
     for epoch in range(num_epoch):
         epoch_loss = 0.0
-        loader.shuffle()
 
         for batch_data, batch_ref in loader:
             optimizer.zero_grad()
