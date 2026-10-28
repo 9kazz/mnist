@@ -11,8 +11,8 @@ from typing import TextIO
 
 from src.prepare_data import Loader
 
-def load_model(path: str, device: str="cpu") -> Net:
-    model = Net()
+def load_model(path: str, device: torch.device | str) -> Net:
+    model = Net().to(device)
 
     state = torch.load(
         path,
@@ -21,7 +21,6 @@ def load_model(path: str, device: str="cpu") -> Net:
     )
 
     model.load_state_dict(state)
-    model.to(device)
     model.eval()
 
     return model
@@ -30,9 +29,16 @@ def run_benchmark(
     model:     nn.Module,
     loader:    Loader,
     criterion: nn.Module,
-    log_file:  TextIO=sys.stdout
+    device:    torch.device | str,
+    log_dir:   TextIO=sys.stdout
 ) -> tuple[float, float]:
-
+    
+    if len(loader.dataset) == 0:
+        raise ValueError("Training and validation datasets must not be empty")
+    
+    device = torch.device(device)
+    model.to(device)
+    criterion.to(device)
     model.eval()
 
     total_loss = 0.0
@@ -40,6 +46,8 @@ def run_benchmark(
 
     with torch.inference_mode():
         for batch_data, batch_ref in loader:
+            batch_data = batch_data.to(device)
+            batch_ref = batch_ref.to(device)
             pred = model(batch_data)
             pred_label = pred.argmax(dim=1)
             
@@ -49,13 +57,12 @@ def run_benchmark(
             correct_answers = pred_label == batch_ref
             total_correct += correct_answers.sum().item()
 
-    assert(len(loader.dataset) != 0)
     mean_loss = total_loss / len(loader.dataset)
     accurancy = total_correct / len(loader.dataset)
     
     print(
         f"Mean loss: {mean_loss:.6f}\nAccurancy: {accurancy:.2%}",
-        file=log_file,
+        file=log_dir,
         flush=True
     )
 
