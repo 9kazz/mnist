@@ -5,7 +5,7 @@ import torch
 from src.prepare_data import *
 from src.network import *
 from src.benchmark import *
-
+import src.visualization as viz
 def main(
     device: torch.device,
     log_dir:   Path | None,
@@ -27,6 +27,9 @@ def main(
         log_dir.parent.mkdir(parents=True, exist_ok=True)
         with log_dir.open("w") as benchmark_log:
             run_benchmark(model, loader, criterion, device=device, log_dir=benchmark_log)
+
+    metrics = viz.read_train_log("logs/trainlog_16-16_100p.csv")
+    viz.show_train_log_plot(metrics)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
