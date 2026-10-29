@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 from collections.abc import Sequence
 import csv
 
-import matplotlib.pyplot as plt
-
 plt.rcParams.update({
     "font.size":       16,      
     "axes.titlesize":  20, 
@@ -17,7 +15,14 @@ plt.rcParams.update({
     "axes.linewidth":  1.5,
 })
 
-def show_mnist_img(objs: Sequence[tuple[torch.Tensor, int]]) -> None:
+# Mnist images
+#--------------------------------------------------------------------------------
+
+def show_mnist_img(
+    objs: Sequence[tuple[torch.Tensor, int | str]],
+    path:  str | None = None,
+    title: str = "MNIST Dataset",
+) -> None:
     objs_cnt = len(objs)
 
     if objs_cnt == 0:
@@ -35,7 +40,7 @@ def show_mnist_img(objs: Sequence[tuple[torch.Tensor, int]]) -> None:
         figsize = (2 * ncols, 2 * nrows),
         layout  = "constrained",
     )
-    fig.suptitle("MNIST Dataset")
+    fig.suptitle(title)
 
     for idx, ax in enumerate(axes.flat):
         ax.axis("off")
@@ -44,11 +49,14 @@ def show_mnist_img(objs: Sequence[tuple[torch.Tensor, int]]) -> None:
 
         img, label = objs[idx]
 
-        ax.imshow(img.detach().cpu().squeeze(0), cmap="gray")
+        ax.imshow(img.detach().cpu().reshape(28, 28), cmap="gray", vmin=0, vmax=1)
         if isinstance(label, torch.Tensor):
             label = label.item()
-        ax.set_title(f"Label: {label}")
+        ax.set_title(label if isinstance(label, str) else f"Label: {label}")
 
+    if path is not None:
+        fig.savefig(path, dpi=150)
+        
     plt.show()
 
 def read_train_log(path: str) -> dict:
@@ -72,6 +80,10 @@ def read_train_log(path: str) -> dict:
                 metrics[key].append(float(row[key]))
 
     return metrics
+
+
+# Train loss & accurancy
+#--------------------------------------------------------------------------------
 
 def show_train_log_plot(metrics: dict, path: str=None) -> None:
     epochs = metrics["Epoch"]

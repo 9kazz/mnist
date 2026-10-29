@@ -17,7 +17,7 @@ def train(
     optimizer: torch.optim.Optimizer,
     num_epoch: int,
     device:    torch.device | str,
-    log_dir:  TextIO=sys.stdout
+    log_dir:   TextIO=sys.stdout
 ) -> nn.Module:
 
     # Move the model before constructing the optimizer, not inside train()
@@ -54,7 +54,7 @@ def train(
             pred = model(batch_data)
             pred_label = pred.argmax(dim=1)
 
-            batch_loss = criterion(pred, batch_ref) # mean batch loss 
+            batch_loss  = criterion(pred, batch_ref) # mean batch loss 
             train_loss += batch_loss.item() * batch_data.size(0) # total loss of all batch elements
 
             correct_answers = pred_label == batch_ref # correct predictions in batch

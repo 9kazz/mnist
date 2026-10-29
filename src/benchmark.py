@@ -10,6 +10,7 @@ import sys
 from typing import TextIO
 
 from src.prepare_data import Loader
+from src.visualization import show_mnist_img
 
 def load_model(path: str, device: torch.device | str) -> Net:
     model = Net().to(device)
@@ -30,9 +31,13 @@ def run_benchmark(
     loader:    Loader,
     criterion: nn.Module,
     device:    torch.device | str,
-    log_dir:   TextIO=sys.stdout
+    log_dir:   TextIO=sys.stdout,
+    num_errors: int | None = None,
 ) -> tuple[float, float]:
     
+    if num_errors is not None and num_errors < 0:
+        raise ValueError("num_errors must be non-negative or None")
+
     if len(loader.dataset) == 0:
         raise ValueError("Training and validation datasets must not be empty")
     
@@ -43,6 +48,9 @@ def run_benchmark(
 
     total_loss = 0.0
     total_correct = 0
+    class_total   = torch.zeros(10, dtype=torch.long, device=device)
+    class_correct = torch.zeros(10, dtype=torch.long, device=device)
+    errors = []
 
     with torch.inference_mode():
         for batch_data, batch_ref in loader:
@@ -56,6 +64,16 @@ def run_benchmark(
 
             correct_answers = pred_label == batch_ref
             total_correct += correct_answers.sum().item()
+            class_total += torch.bincount(batch_ref, minlength=10)
+            class_correct += torch.bincount(batch_ref[correct_answers], minlength=10)
+
+            if num_errors is not None and len(errors) < num_errors:
+                indices = (~correct_answers).nonzero(as_tuple=True)[0]
+                for index in indices[:num_errors - len(errors)].tolist():
+                    image = batch_data[index].detach().cpu().clone()
+                    label = batch_ref[index].item()
+                    prediction = pred_label[index].item()
+                    errors.append((image, f"True: {label}\nPred: {prediction}"))
 
     mean_loss = total_loss / len(loader.dataset)
     accurancy = total_correct / len(loader.dataset)
@@ -65,5 +83,15 @@ def run_benchmark(
         file=log_dir,
         flush=True
     )
+
+    for digit, (correct, total) in enumerate(zip(class_correct.tolist(), class_total.tolist())):
+        if total > 0:
+            print(f"Accuracy of {digit}: {correct / total:.2%}", file=log_dir)
+        else:
+            print(f"Accuracy of {digit}: N/A (no samples)", file=log_dir)
+    log_dir.flush()
+
+    if errors:
+        show_mnist_img(errors, title="Benchmark errors")
 
     return mean_loss, accurancy
